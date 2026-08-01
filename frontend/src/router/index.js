@@ -7,9 +7,9 @@ import BookingSummary from "../views/BookingSummary.vue";
 import Confirmation from "../views/Confirmation.vue";
 
 const routes = [
-  { path: "/", redirect: "/search" },
+  { path: "/", redirect: "/login" },
   { path: "/login", name: "Login", component: Login },
-  { path: "/search", name: "Search", component: Search, meta: { requiresAuth: false } },
+  { path: "/search", name: "Search", component: Search, meta: { requiresAuth: true } },
   {
     path: "/schedules/:scheduleId/seats",
     name: "SeatSelection",
