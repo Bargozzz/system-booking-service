@@ -199,7 +199,37 @@ curl -X POST http://localhost:8080/api/seats/1/lock \
   -H "Authorization: Bearer <paste access_token here>"
 ```
 
-### 3.2 Confirm a booking
+### 3.2 Cancel a pending hold (before confirming)
+
+Lets a user voluntarily release their own lock — e.g. they clicked the
+wrong seat, or want to pick a different one — without waiting for the
+5-minute expiry. Only releases the seat if the caller is the one currently
+holding the lock; has no effect on a seat locked by someone else or already
+booked.
+
+```
+POST /api/seats/{seatId}/unlock
+Authorization: Bearer <access_token>
+```
+
+Success response — `200 OK`:
+```json
+{ "seat_id": 1, "status": "released" }
+```
+
+If the lock had already expired or wasn't yours, this is a harmless no-op
+(still `200 OK`):
+```json
+{ "seat_id": 1, "status": "released", "note": "seat was not held by you (already expired or released)" }
+```
+
+`curl` example:
+```bash
+curl -X POST http://localhost:8080/api/seats/1/unlock \
+  -H "Authorization: Bearer <paste access_token here>"
+```
+
+### 3.3 Confirm a booking
 
 Must be called by the same user who holds a still-valid lock on the seat.
 

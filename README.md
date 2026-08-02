@@ -11,6 +11,33 @@ search, temporary seat locking, and race-condition-safe booking confirmation.
 
 ---
 
+## Quick Start (recommended for reviewers)
+
+The fastest, most reliable way to run this project on any machine —
+Windows, macOS, or Linux — is Docker, because it avoids every
+OS-specific setup issue described further below (missing C compiler, npm
+platform-binary bugs, etc.):
+
+```bash
+git clone <this-repo-url>
+cd mini-booking-service
+docker compose up --build
+```
+
+Wait for both services to report they're up (first build takes a few
+minutes while it downloads base images), then open:
+
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:8080
+- **Login with**: `alice` / `password123` (or `bob` / `password123`)
+
+If you don't have Docker installed, or prefer running things natively,
+follow sections 2 and 3 below instead — they cover setup per operating
+system, with a troubleshooting section for the specific errors that come
+up most often.
+
+---
+
 ## 1. Project layout
 
 ```
@@ -43,11 +70,37 @@ mini-booking/
 
 ## 2. Running the backend (local, without Docker)
 
-Requires Go 1.22+ and a C compiler (for the sqlite3 driver's cgo build).
+### Prerequisites
+
+| Requirement | Why | How to check | How to install |
+|---|---|---|---|
+| **Go 1.22+** | Compiles and runs the server | `go version` | https://go.dev/dl/ |
+| **A C compiler (cgo)** | The SQLite driver (`mattn/go-sqlite3`) needs to compile a small amount of C code | `gcc --version` | See OS-specific instructions below |
+
+**Installing a C compiler:**
+- **Windows**: Download [w64devkit](https://github.com/skeeto/w64devkit/releases) (a portable
+  GCC toolchain — no installer needed), extract it anywhere (e.g. `C:\w64devkit`),
+  then add `C:\w64devkit\bin` to your `PATH` (Windows key → search "environment
+  variables" → Edit the system environment variables → Environment Variables →
+  edit `Path` → add the folder). **Restart your terminal/IDE** after this so the
+  updated `PATH` is picked up.
+- **macOS**: Install Xcode Command Line Tools: `xcode-select --install`
+- **Linux (Debian/Ubuntu)**: `sudo apt-get install build-essential`
+
+### Steps
 
 ```bash
 cd backend
+go mod download
 go run .
+```
+
+Expected output:
+```
+2026/08/01 10:00:00 Seeding database with dummy data...
+2026/08/01 10:00:00 Database initialized and seeded.
+2026/08/01 10:00:00 Lock expiry sweeper started (interval: 30s).
+2026/08/01 10:00:00 Mini Booking Service listening on :8080
 ```
 
 The server starts on **http://localhost:8080**, creates `minibooking.db` in the
@@ -69,14 +122,31 @@ go test ./... -race       # same tests, with Go's data-race detector
 
 Covers: successful end-to-end booking, lock conflicts between two users,
 concurrent-lock race safety (15 simultaneous lock attempts → exactly 1
-succeeds), missing/invalid JWTs, automatic lock expiry, and bad login
-credentials.
+succeeds), missing/invalid JWTs, automatic lock expiry, voluntarily
+cancelling a hold, and bad login credentials. All 7 should pass.
+
+### Backend troubleshooting
+
+| Error | Cause | Fix |
+|---|---|---|
+| `cgo: C compiler "gcc" not found` | No C compiler installed/on PATH | See "Installing a C compiler" above; **restart your terminal** after adding it to PATH |
+| `bind: address already in use` (port 8080) | Another process is already using port 8080 | Stop the other process, or run with a different port: `PORT=8081 go run .` (macOS/Linux) or `$env:PORT="8081"; go run .` (PowerShell) |
+| `database is locked` | Two processes (e.g. this server + a SQLite GUI tool) writing at the same time | Close the other tool, or wait — the connection is configured with `_busy_timeout=5000` so it retries for 5s before failing |
 
 ---
 
 ## 3. Running the frontend (local, without Docker)
 
-Requires Node.js 18+.
+### Prerequisites
+
+| Requirement | Why | How to check | How to install |
+|---|---|---|---|
+| **Node.js 18+** | Runs Vite (dev server + build tool) | `node --version` | https://nodejs.org (LTS version) |
+
+The backend must already be running (see section 2) before the frontend
+can successfully load data — start it first if you haven't.
+
+### Steps
 
 ```bash
 cd frontend
@@ -84,8 +154,16 @@ npm install
 npm run dev
 ```
 
-Opens on **http://localhost:5173** (or similar) and talks to the backend at
-`http://localhost:8080` — make sure the backend is running first.
+Expected output:
+```
+  VITE vX.X.X  ready in XXX ms
+
+  ➜  Local:   http://localhost:5173/
+```
+
+Open **http://localhost:5173** in a browser. It talks to the backend at
+`http://localhost:8080` by default (configurable via `VITE_API_BASE_URL`,
+see `.env.example`).
 
 For a production build:
 
@@ -94,17 +172,37 @@ npm run build
 npm run preview
 ```
 
+### Frontend troubleshooting
+
+| Error | Cause | Fix |
+|---|---|---|
+| `Cannot find module @rollup/rollup-<platform>` or `Cannot find native binding` (mentions Rolldown/Rollup) | Known npm bug with optional platform-specific dependencies ([npm/cli#4828](https://github.com/npm/cli/issues/4828)) — happens more often on Windows | Delete `node_modules` and `package-lock.json`, then run `npm install` again:<br>`Remove-Item -Recurse -Force node_modules` (PowerShell) or `rm -rf node_modules` (macOS/Linux), then `Remove-Item package-lock.json` / `rm package-lock.json`, then `npm install` |
+| Same error persists after the above | The installed Vite version's bundled Rolldown binary genuinely isn't available for your platform yet | Pin an older, stable Vite version: `npm uninstall vite && npm install vite@^5.4.0 --save-dev`, then `npm run dev` again |
+| Page loads but shows no schedules / network errors in browser console | Backend isn't running, or is running on a different port than `VITE_API_BASE_URL` expects | Confirm backend is up at http://localhost:8080 (visit it directly, or `curl http://localhost:8080/api/schedules`) |
+| `EBADENGINE` warning when running `npm install -g npm@latest` | Your Node.js version is older than what the newest npm requires | Safe to ignore — the npm version that ships with your Node install is sufficient for this project; there's no need to upgrade npm globally |
+
 ---
 
-## 4. Running everything with Docker (bonus)
+## 4. Running everything with Docker
 
-Requires Docker and Docker Compose. This is the fastest way to run the whole
-stack with one command — no need to install Go, Node.js, or a C compiler
-locally.
+### Prerequisites
+
+| Requirement | How to check | How to install |
+|---|---|---|
+| **Docker Desktop** (includes Docker Compose) | `docker --version` and `docker compose version` | https://www.docker.com/products/docker-desktop/ |
+
+On Windows, Docker Desktop requires WSL2 — the installer will prompt you
+to enable/install it if needed. **Docker Desktop must be running** (check
+for its whale icon in the system tray/menu bar) before using `docker` commands.
+
+### Steps
 
 ```bash
 docker compose up --build
 ```
+
+First build takes a few minutes (downloading Go, Node, and nginx base
+images). Subsequent runs are much faster thanks to Docker's layer cache.
 
 - Backend: **http://localhost:8080**
 - Frontend: **http://localhost:5173**
@@ -122,6 +220,15 @@ To stop everything:
 ```bash
 docker compose down
 ```
+
+### Docker troubleshooting
+
+| Error | Cause | Fix |
+|---|---|---|
+| `Cannot connect to the Docker daemon` | Docker Desktop isn't running | Open the Docker Desktop application and wait for it to fully start |
+| Frontend build fails with a Rollup/native-binding error (same family as the npm issue above) | A `node_modules` folder from your host machine (built for your OS) got copied into the Linux container, overwriting the correct Linux binaries | Make sure `frontend/.dockerignore` exists and contains `node_modules` (it's included in this repo already); then clear the build cache and rebuild: `docker compose down -v && docker builder prune -f && docker compose up --build` |
+| `port is already allocated` | Something else on your machine is already using port 8080 or 5173 (e.g. you also have the backend/frontend running natively) | Stop the natively-running processes first, or edit the port mappings in `docker-compose.yml` |
+| Old code/data still showing after a rebuild | Docker reused cached layers | `docker compose down -v` (removes the data volume too) then `docker compose up --build` |
 
 ---
 
@@ -179,6 +286,7 @@ Quick summary:
 | GET    | `/api/schedules/{id}/seats`     | none | Seat map for a schedule (also lazily releases expired locks) |
 | POST   | `/api/seats/{id}/lock`         | JWT  | Locks a seat for 5 minutes if available or its previous lock expired |
 | POST   | `/api/seats/{id}/confirm`      | JWT  | Confirms a booking; must hold a valid, unexpired lock on that seat |
+| POST   | `/api/seats/{id}/unlock`       | JWT  | Voluntarily releases the caller's own pending hold before confirming (used by the frontend's "Cancel" button) |
 
 ---
 

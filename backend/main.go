@@ -29,6 +29,34 @@ func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// statusRecorder wraps http.ResponseWriter so loggingMiddleware can capture
+// the status code that was actually written, since http.ResponseWriter
+// doesn't expose it directly.
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (rec *statusRecorder) WriteHeader(code int) {
+	rec.status = code
+	rec.ResponseWriter.WriteHeader(code)
+}
+
+// loggingMiddleware prints one line per request to the terminal — method,
+// path, status code, and how long it took — e.g.:
+//
+// This is what makes load test results (scripts/loadtest.go, or 50 requests
+// fired at once) visibly observable in the backend's own terminal, not just
+// in the load test script's own summary output.
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(rec, r)
+		log.Printf("%-6s %-30s %d   %s", r.Method, r.URL.Path, rec.status, time.Since(start))
+	})
+}
+
 // pathID extracts the trailing numeric ID from a URL path like
 // /api/seats/42/lock -> parts[2] == "42".
 func pathID(path string, position int) (int64, bool) {
@@ -92,7 +120,7 @@ func NewRouter() http.Handler {
 		}
 	}))
 
-	return mux
+	return loggingMiddleware(mux)
 }
 
 func main() {

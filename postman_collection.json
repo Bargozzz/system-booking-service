@@ -102,6 +102,14 @@
           }
         },
         {
+          "name": "Cancel/unlock seat 1",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/api/seats/1/unlock"
+          }
+        },
+        {
           "name": "Confirm booking for seat 1",
           "request": {
             "method": "POST",
