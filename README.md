@@ -19,7 +19,7 @@ OS-specific setup issue described further below (missing C compiler, npm
 platform-binary bugs, etc.):
 
 ```bash
-git clone <this-repo-url>
+git clone https://github.com/Bargozzz/system-booking-service.git
 cd mini-booking-service
 docker compose up --build
 ```
