@@ -354,34 +354,7 @@ This was verified two ways:
 
 ---
 
-## 9. Publishing to GitHub
-
-This project isn't in a Git repository yet. To push it as your own
-repository:
-
-```bash
-cd mini-booking          # the folder you extracted from the zip
-git init
-git add .
-git commit -m "Initial commit: Mini Booking Service"
-```
-
-Then create an empty repository on GitHub (via the website: click **New**
-at github.com/new — do **not** initialize it with a README), and push:
-
-```bash
-git remote add origin https://github.com/<your-username>/<repo-name>.git
-git branch -M main
-git push -u origin main
-```
-
-`node_modules/`, build output (`dist/`), and the local SQLite database files
-are already excluded via `.gitignore` in both `backend/` and `frontend/`, so
-they won't be committed.
-
----
-
-## 10. Notes on scope / simplifications
+## 9. Notes on scope / simplifications
 
 - Authentication uses two pre-seeded dummy users with plaintext passwords, as
   specified in the brief — this is a demo, not a production auth system.
