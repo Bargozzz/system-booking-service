@@ -1,14 +1,12 @@
 {
   "info": {
+    "_postman_id": "5488f273-e3c9-4c3e-aa0a-1930546b7dfe",
     "name": "Mini Booking Service",
     "description": "REST API for the Mini Booking Service. Run 'Login' first — it auto-saves the access token into the collection variable {{access_token}}, which every protected request reuses automatically.",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "51998504",
+    "_collection_link": "https://go.postman.co/collection/51998504-5488f273-e3c9-4c3e-aa0a-1930546b7dfe?source=collection_link"
   },
-  "variable": [
-    { "key": "base_url", "value": "http://localhost:8080" },
-    { "key": "access_token", "value": "" },
-    { "key": "refresh_token", "value": "" }
-  ],
   "item": [
     {
       "name": "Auth",
@@ -23,19 +21,36 @@
                   "const body = pm.response.json();",
                   "pm.collectionVariables.set('access_token', body.access_token);",
                   "pm.collectionVariables.set('refresh_token', body.refresh_token);"
-                ]
+                ],
+                "type": "text/javascript"
               }
             }
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"username\": \"alice\",\n  \"password\": \"password123\"\n}"
             },
-            "url": "{{base_url}}/api/login"
-          }
+            "url": {
+              "raw": "{{base_url}}/api/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "login"
+              ]
+            },
+            "description": "## Login\n\nEndpoint untuk autentikasi pengguna. Mengembalikan **access token** dan **refresh token** yang digunakan untuk mengakses endpoint yang memerlukan autentikasi.\n\n---\n\n### Request\n\n**Method:** `POST`  \n**URL:** `{{base_url}}/api/login`\n\n#### Headers\n\n| Key | Value |\n| --- | --- |\n| Content-Type | application/json |\n\n#### Body (JSON)\n\n| Field | Type | Wajib | Keterangan |\n| --- | --- | --- | --- |\n| `username` | string | Ya | Username pengguna |\n| `password` | string | Ya | Password pengguna |\n\n**Contoh:**\n\n``` json\n{\n  \"username\": \"alice\",\n  \"password\": \"password123\"\n}\n\n ```\n\n---\n\n### Response `200 OK`\n\n| Field | Type | Keterangan |\n| --- | --- | --- |\n| `access_token` | string | Token JWT untuk autentikasi request berikutnya |\n| `refresh_token` | string | Token JWT untuk memperbarui access token yang kedaluwarsa |\n| `expires_in` | integer | Durasi berlaku access token dalam detik (900 = 15 menit) |\n| `user_id` | integer | ID unik pengguna yang berhasil login |\n| `username` | string | Username pengguna yang berhasil login |\n\n---\n\n### Cara Mendapatkan Token\n\n1. Kirim request `POST` ke `{{base_url}}/api/login` dengan `username` dan `password` yang valid.\n    \n2. Dari response, ambil nilai `access_token` dan `refresh_token`.\n    \n3. Kedua token otomatis disimpan sebagai collection variable (`access_token` dan `refresh_token`) melalui post-response script.\n    \n\n---\n\n### Cara Menggunakan Token\n\nSertakan `access_token` pada header `Authorization` di setiap request yang memerlukan autentikasi:\n\n```\nAuthorization: Bearer {{access_token}}\n\n ```\n\n> **Catatan:** Access token berlaku selama **15 menit**. Jika sudah kedaluwarsa, gunakan `refresh_token` untuk mendapatkan access token baru tanpa perlu login ulang."
+          },
+          "response": []
         },
         {
           "name": "Refresh token",
@@ -46,21 +61,39 @@
                 "exec": [
                   "const body = pm.response.json();",
                   "pm.collectionVariables.set('access_token', body.access_token);"
-                ]
+                ],
+                "type": "text/javascript"
               }
             }
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
             },
-            "url": "{{base_url}}/api/refresh"
-          }
+            "url": {
+              "raw": "{{base_url}}/api/refresh",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "refresh"
+              ]
+            },
+            "description": "## Refresh Token\n\nGunakan endpoint ini untuk mendapatkan access token baru menggunakan refresh token yang masih valid. Biasanya dipanggil ketika access token saat ini sudah kedaluwarsa.\n\n---\n\n### Request\n\n**Method:** `POST`  \n**URL:** `{{base_url}}/api/refresh`\n\n#### Headers\n\n| Key | Value |\n| --- | --- |\n| Content-Type | application/json |\n\n#### Body (JSON)\n\n``` json\n{\n  \"refresh_token\": \"{{refresh_token}}\"\n}\n\n ```\n\n| Field | Tipe | Deskripsi |\n| --- | --- | --- |\n| `refresh_token` | `string` | Refresh token yang valid, sebelumnya diterbitkan oleh server autentikasi. Disimpan dalam variabel koleksi `{{refresh_token}}`. |\n\n---\n\n### Response\n\nJika berhasil, server akan mengembalikan access token baru.\n\n#### Contoh Response\n\n``` json\n{\n  \"access_token\": \"<access_token_baru>\"\n}\n\n ```\n\n| Field | Tipe | Deskripsi |\n| --- | --- | --- |\n| `access_token` | `string` | Access token baru yang diterbitkan untuk digunakan pada request-request berikutnya yang memerlukan autentikasi. |\n\n---\n\n### Perilaku Setelah Response\n\nSetelah response berhasil diterima, nilai `access_token` dari body response akan otomatis disimpan ke dalam variabel koleksi `{{access_token}}`, sehingga langsung tersedia untuk digunakan pada request selanjutnya."
+          },
+          "response": []
         }
-      ]
+      ],
+      "description": "Folder ini berisi endpoint autentikasi untuk API Mini Booking Service.\n\n- **Login** (`POST /api/login`) — Mengautentikasi pengguna menggunakan username dan password. Jika berhasil, mengembalikan `access_token`, `refresh_token`, dan durasi kedaluwarsa token. Access token harus disertakan pada request-request berikutnya yang memerlukan autentikasi.\n- **Refresh Token** (`POST /api/refresh`) — Menerbitkan `access_token` baru menggunakan `refresh_token` yang masih valid. Panggil endpoint ini ketika access token saat ini sudah kedaluwarsa, agar sesi autentikasi tetap aktif tanpa mengharuskan pengguna login ulang."
     },
     {
       "name": "Schedules (public)",
@@ -69,26 +102,59 @@
           "name": "Search schedules",
           "request": {
             "method": "GET",
+            "header": [],
             "url": {
               "raw": "{{base_url}}/api/schedules?origin=Jakarta&destination=Bandung",
-              "host": ["{{base_url}}"],
-              "path": ["api", "schedules"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "schedules"
+              ],
               "query": [
-                { "key": "origin", "value": "Jakarta" },
-                { "key": "destination", "value": "Bandung" },
-                { "key": "date", "value": "", "disabled": true }
+                {
+                  "key": "origin",
+                  "value": "Jakarta"
+                },
+                {
+                  "key": "destination",
+                  "value": "Bandung"
+                },
+                {
+                  "key": "date",
+                  "value": "",
+                  "disabled": true
+                }
               ]
-            }
-          }
+            },
+            "description": "## Search Schedules\n\nRetrieves a list of available travel schedules based on the specified origin, destination, and optional date. Use this endpoint to find schedules between two locations before proceeding with seat selection or booking.\n\n---\n\n## HTTP Method & URL\n\n```\nGET {{base_url}}/api/schedules\n```\n\n---\n\n## Query Parameters\n\n| Key | Type | Required | Description |\n|---|---|---|---|\n| `origin` | `string` | ✅ Required | The departure location (e.g., `Jakarta`). |\n| `destination` | `string` | ✅ Required | The arrival location (e.g., `Bandung`). |\n| `date` | `string` | ⬜ Optional | The travel date in `YYYY-MM-DD` format (e.g., `2025-08-01`). If omitted, schedules for all available dates may be returned. |\n\n---\n\n## Example Usage\n\n**Search for schedules from Jakarta to Bandung on a specific date:**\n```\nGET {{base_url}}/api/schedules?origin=Jakarta&destination=Bandung&date=2025-08-01\n```\n\n**Search for all available schedules from Jakarta to Bandung (no date filter):**\n```\nGET {{base_url}}/api/schedules?origin=Jakarta&destination=Bandung\n```\n\n> **Note:** Both `origin` and `destination` are required. Omitting either will result in an error response. The `date` parameter is optional and can be used to narrow down results to a specific travel date."
+          },
+          "response": []
         },
         {
           "name": "View seats for schedule 1",
           "request": {
             "method": "GET",
-            "url": "{{base_url}}/api/schedules/1/seats"
-          }
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/schedules/1/seats",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "schedules",
+                "1",
+                "seats"
+              ]
+            },
+            "description": "Retrieves the list of all seats for a specific schedule, identified by its ID.\n\n## Endpoint\n\n`GET {{base_url}}/api/schedules/1/seats`\n\n## Path Parameters\n\n| Parameter | Type | Description |\n| --- | --- | --- |\n| `schedule_id` | integer | The unique ID of the schedule whose seats are being retrieved. |\n\n## Request\n\nNo request body required.\n\n## Response\n\nReturns a JSON array of seat objects for the given schedule.\n\n### Response Body (200 OK)\n\n| Field | Type | Description |\n| --- | --- | --- |\n| `id` | integer | Unique identifier of the seat. |\n| `schedule_id` | integer | The ID of the schedule this seat belongs to. |\n| `seat_number` | string | The seat label (e.g. `A1`, `B3`). |\n| `status` | string | Availability status of the seat. Possible values: `available`, `booked`. |\n| `locked_by` | integer | _(Optional)_ The user ID who has locked/booked the seat. Only present when `status` is `booked`. |\n\n### Example Response\n\n``` json\n[\n  { \"id\": 1, \"schedule_id\": 1, \"seat_number\": \"A1\", \"status\": \"available\" },\n  { \"id\": 2, \"schedule_id\": 1, \"seat_number\": \"A2\", \"status\": \"available\" },\n  { \"id\": 3, \"schedule_id\": 1, \"seat_number\": \"A3\", \"status\": \"booked\", \"locked_by\": 2 },\n  { \"id\": 8, \"schedule_id\": 1, \"seat_number\": \"B2\", \"status\": \"booked\", \"locked_by\": 1 }\n]\n\n ```"
+          },
+          "response": []
         }
-      ]
+      ],
+      "description": "Contains publicly accessible endpoints for browsing travel schedules. Use **Search schedules** to query available routes by origin and destination, and **View seats for schedule** to retrieve seat availability for a specific schedule."
     },
     {
       "name": "Bookings (protected)",
@@ -97,27 +163,96 @@
           "name": "Lock seat 1",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
-            "url": "{{base_url}}/api/seats/1/lock"
-          }
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/seats/1/lock",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "seats",
+                "1",
+                "lock"
+              ]
+            },
+            "description": "Locks a specific seat to temporarily reserve it for a user during the booking process. This prevents other users from booking the same seat while the current user completes their transaction.\n\n## Endpoint\n\n`POST {{base_url}}/api/seats/1/lock`\n\n## Authentication\n\nRequires a valid Bearer token passed via the `Authorization` header.\n\n| Header | Value |\n|---|---|\n| Authorization | `Bearer {{access_token}}` |\n\n## Path Parameters\n\n| Parameter | Type | Description |\n|---|---|---|\n| `1` | integer | The ID of the seat to lock |\n\n## Request Body\n\nNo request body required.\n\n## Notes\n\n- The seat lock is typically temporary and may expire after a set timeout if the booking is not completed.\n- Ensure the `access_token` variable is set with a valid token before sending this request."
+          },
+          "response": []
         },
         {
           "name": "Cancel/unlock seat 1",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
-            "url": "{{base_url}}/api/seats/1/unlock"
-          }
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/seats/1/unlock",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "seats",
+                "1",
+                "unlock"
+              ]
+            },
+            "description": "Cancels or unlocks a previously locked seat, making it available again for other users to book.\n\n## Endpoint\n\n`POST {{base_url}}/api/seats/1/unlock`\n\n## Authentication\n\nRequires a valid Bearer token passed via the `Authorization` header.\n\n| Header | Value |\n|---|---|\n| Authorization | `Bearer {{access_token}}` |\n\n## Request Body\n\nNo request body is required.\n\n## Path Parameters\n\n| Parameter | Description |\n|---|---|\n| `1` | The ID of the seat to cancel/unlock. |\n\n## Notes\n\n- This endpoint is typically called when a user abandons a booking flow or explicitly cancels their seat reservation.\n- After a successful unlock, the seat becomes available for other users to lock and book.\n- Ensure the `access_token` variable is set in your environment before sending this request."
+          },
+          "response": []
         },
         {
           "name": "Confirm booking for seat 1",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
-            "url": "{{base_url}}/api/seats/1/confirm"
-          }
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/seats/1/confirm",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "seats",
+                "1",
+                "confirm"
+              ]
+            },
+            "description": "Confirms a previously locked seat booking for seat ID `1`.\n\nThis endpoint finalizes the reservation process. It should be called after the seat has been successfully locked using the Lock Seat endpoint. Once confirmed, the booking is considered complete and the seat is no longer available to other users.\n\n**Authentication**\n\nRequires a valid Bearer token passed via the `Authorization` header. Use the `{{access_token}}` variable, which is typically obtained from the Login endpoint.\n\n**URL Parameters**\n\n| Parameter | Type | Description |\n|-----------|------|-------------|\n| `id` | integer | The ID of the seat to confirm. In this request, it is hardcoded to `1`. |\n\n**Request Body**\n\nNone required.\n\n**Expected Behavior**\n\n- Returns a success response when the booking is confirmed.\n- May return an error if the seat lock has expired or the seat was not previously locked by the current user."
+          },
+          "response": []
         }
-      ]
+      ],
+      "description": "Contains protected endpoints for managing seat bookings. All requests in this folder require a valid authentication token. The available operations are:\n\n- **Lock seat** – Temporarily reserves a seat to prevent others from booking it while a user is in the checkout flow.\n- **Cancel/unlock seat** – Releases a previously locked seat, making it available again for other users.\n- **Confirm booking** – Finalises the booking for a locked seat, completing the reservation process."
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "refresh_token",
+      "value": ""
     }
   ]
 }
