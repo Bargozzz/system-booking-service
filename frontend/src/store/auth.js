@@ -1,27 +1,27 @@
-import { reactive } from 'vue'
+import { reactive } from "vue";
 
 export const authState = reactive({
-  username: localStorage.getItem('username') || null,
-  userId: localStorage.getItem('user_id') ? Number(localStorage.getItem('user_id')) : null,
-  isAuthenticated: !!localStorage.getItem('access_token'),
-})
+  username: sessionStorage.getItem("username") || null,
+  userId: sessionStorage.getItem("user_id") ? Number(sessionStorage.getItem("user_id")) : null,
+  isAuthenticated: !!sessionStorage.getItem("access_token"),
+});
 
 export function setSession(username, userId, accessToken, refreshToken) {
-  localStorage.setItem('username', username)
-  localStorage.setItem('user_id', String(userId))
-  localStorage.setItem('access_token', accessToken)
-  localStorage.setItem('refresh_token', refreshToken)
-  authState.username = username
-  authState.userId = userId
-  authState.isAuthenticated = true
+  sessionStorage.setItem("username", username);
+  sessionStorage.setItem("user_id", String(userId));
+  sessionStorage.setItem("access_token", accessToken);
+  sessionStorage.setItem("refresh_token", refreshToken);
+  authState.username = username;
+  authState.userId = userId;
+  authState.isAuthenticated = true;
 }
 
 export function clearSession() {
-  localStorage.removeItem('username')
-  localStorage.removeItem('user_id')
-  localStorage.removeItem('access_token')
-  localStorage.removeItem('refresh_token')
-  authState.username = null
-  authState.userId = null
-  authState.isAuthenticated = false
+  sessionStorage.removeItem("username");
+  sessionStorage.removeItem("user_id");
+  sessionStorage.removeItem("access_token");
+  sessionStorage.removeItem("refresh_token");
+  authState.username = null;
+  authState.userId = null;
+  authState.isAuthenticated = false;
 }

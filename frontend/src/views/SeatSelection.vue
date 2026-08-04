@@ -1,35 +1,46 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { api } from '../api/client'
-import { authState } from '../store/auth'
+import { ref, onMounted, onUnmounted, computed } from "vue";
+import { useRouter } from "vue-router";
+import { api } from "../api/client";
+import { authState } from "../store/auth";
 
-const props = defineProps({ scheduleId: { type: [String, Number], required: true } })
-const router = useRouter()
+const props = defineProps({ scheduleId: { type: [String, Number], required: true } });
+const router = useRouter();
 
-const seats = ref([])
-const loading = ref(true)
-const error = ref('')
-const locking = ref(false)
-const lockedSeat = ref(null) // the seat this browser session just locked (pending confirmation)
-const lockExpiresAt = ref(null)
-const now = ref(Date.now())
+const seats = ref([]);
+const loading = ref(true);
+const error = ref("");
+const locking = ref(false);
+const lockedSeat = ref(null); // the seat this browser session just locked (pending confirmation)
+const lockExpiresAt = ref(null);
+const now = ref(Date.now());
 
-let pollTimer = null
-let clockTimer = null
+let pollTimer = null;
+let clockTimer = null;
+let loadSeatsRequestId = 0;
 
 async function loadSeats() {
+  const requestId = ++loadSeatsRequestId;
   try {
-    const { data } = await api.viewSeats(props.scheduleId)
-    seats.value = data
+    const { data } = await api.viewSeats(props.scheduleId);
+    if (requestId !== loadSeatsRequestId) return;
+    seats.value = data;
+    const myActiveLock = data.find((s) => s.status === "locked" && s.locked_by === authState.userId);
+    if (myActiveLock && (!lockedSeat.value || lockedSeat.value.id !== myActiveLock.id)) {
+      lockedSeat.value = myActiveLock;
+      lockExpiresAt.value = new Date(myActiveLock.lock_expires_at).getTime();
+    } else if (!myActiveLock && lockedSeat.value) {
+      lockedSeat.value = null;
+      lockExpiresAt.value = null;
+    }
   } catch (err) {
     if (err.response?.status === 404) {
-      error.value = 'Jadwal ini tidak ditemukan.'
+      error.value = "Jadwal ini tidak ditemukan.";
     } else {
-      error.value = 'Peta kursi gagal dimuat. Silakan coba lagi.'
+      error.value = "Peta kursi gagal dimuat. Silakan coba lagi.";
     }
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 
@@ -38,78 +49,78 @@ async function loadSeats() {
 // since the backend keeps locked_by populated as the booking owner even
 // after status flips to 'booked'.
 function seatState(seat) {
-  const isMine = authState.userId != null && seat.locked_by === authState.userId
-  if (seat.status === 'booked') return isMine ? 'booked-mine' : 'booked-other'
-  if (seat.status === 'locked') return isMine ? 'holding' : 'locked-other'
-  return 'available'
+  const isMine = authState.userId != null && seat.locked_by === authState.userId;
+  if (seat.status === "booked") return isMine ? "booked-mine" : "booked-other";
+  if (seat.status === "locked") return isMine ? "holding" : "locked-other";
+  return "available";
 }
 
 async function handleSeatClick(seat) {
-  if (seatState(seat) !== 'available' || locking.value) return
-  locking.value = true
-  error.value = ''
+  if (seatState(seat) !== "available" || locking.value) return;
+  locking.value = true;
+  error.value = "";
   try {
-    const { data } = await api.lockSeat(seat.id)
-    lockedSeat.value = seat
-    lockExpiresAt.value = new Date(data.lock_expires_at).getTime()
-    await loadSeats()
+    const { data } = await api.lockSeat(seat.id);
+    lockedSeat.value = seat;
+    lockExpiresAt.value = new Date(data.lock_expires_at).getTime();
+    await loadSeats();
   } catch (err) {
     if (err.response?.status === 409) {
-      error.value = err.response.data?.error || 'Kursi ini baru saja diambil orang lain. Silakan pilih kursi lain.'
-      await loadSeats()
+      error.value = err.response.data?.error || "Kursi ini baru saja diambil orang lain. Silakan pilih kursi lain.";
+      await loadSeats();
     } else if (err.response?.status === 401) {
-      error.value = 'Sesi Anda berakhir. Silakan login kembali.'
+      error.value = "Sesi Anda berakhir. Silakan login kembali.";
     } else {
-      error.value = 'Kursi gagal dikunci. Silakan coba lagi.'
+      error.value = "Kursi gagal dikunci. Silakan coba lagi.";
     }
   } finally {
-    locking.value = false
+    locking.value = false;
   }
 }
 
 function goToSummary() {
   router.push({
-    name: 'BookingSummary',
+    name: "BookingSummary",
     query: {
       seatId: lockedSeat.value.id,
       seatNumber: lockedSeat.value.seat_number,
       scheduleId: props.scheduleId,
       lockExpiresAt: lockExpiresAt.value,
     },
-  })
+  });
 }
 
-const cancelling = ref(false)
+const cancelling = ref(false);
 
 async function handleCancel() {
-  if (!lockedSeat.value || cancelling.value) return
-  cancelling.value = true
-  error.value = ''
+  if (!lockedSeat.value || cancelling.value) return;
+  cancelling.value = true;
+  error.value = "";
   try {
-    await api.unlockSeat(lockedSeat.value.id)
+    await api.unlockSeat(lockedSeat.value.id);
   } catch (err) {
     // Even if the unlock call fails (e.g. it already expired on its own),
     // we still want to clear the local hold state below — there's nothing
     // useful the user can do about a stale hold that's already gone.
   } finally {
-    lockedSeat.value = null
-    lockExpiresAt.value = null
-    cancelling.value = false
-    await loadSeats()
+    lockedSeat.value = null;
+    lockExpiresAt.value = null;
+    cancelling.value = false;
+    await loadSeats();
   }
 }
 
 const secondsLeft = computed(() => {
-  if (!lockExpiresAt.value) return 0
-  return Math.max(0, Math.floor((lockExpiresAt.value - now.value) / 1000))
-})
+  if (!lockExpiresAt.value) return 0;
+  return Math.max(0, Math.floor((lockExpiresAt.value - now.value) / 1000));
+});
 
-const lockExpired = computed(() => lockedSeat.value && secondsLeft.value <= 0)
+const lockExpired = computed(() => lockedSeat.value && secondsLeft.value <= 0);
 
 function formatCountdown(sec) {
-  const m = Math.floor(sec / 60)
-  const s = sec % 60
-  return `${m}:${s.toString().padStart(2, '0')}`
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
 // Vertical cabin layout: rows run front-to-back (top-to-bottom), each row
@@ -117,28 +128,30 @@ function formatCountdown(sec) {
 // mirrors how the cabin actually looks from above, so "kiri"/"kanan" reads
 // intuitively instead of an arbitrary horizontal strip.
 const cabinRows = computed(() => {
-  const byNumber = {}
+  const byNumber = {};
   for (const seat of seats.value) {
-    const letter = seat.seat_number.charAt(0)
-    const number = seat.seat_number.slice(1)
-    if (!byNumber[number]) byNumber[number] = {}
-    byNumber[number][letter] = seat
+    const letter = seat.seat_number.charAt(0);
+    const number = seat.seat_number.slice(1);
+    if (!byNumber[number]) byNumber[number] = {};
+    byNumber[number][letter] = seat;
   }
   return Object.keys(byNumber)
     .sort((a, b) => Number(a) - Number(b))
-    .map((number) => ({ number, left: byNumber[number].A, right: byNumber[number].B }))
-})
+    .map((number) => ({ number, left: byNumber[number].A, right: byNumber[number].B }));
+});
 
 onMounted(() => {
-  loadSeats()
-  pollTimer = setInterval(loadSeats, 5000)
-  clockTimer = setInterval(() => { now.value = Date.now() }, 1000)
-})
+  loadSeats();
+  pollTimer = setInterval(loadSeats, 5000);
+  clockTimer = setInterval(() => {
+    now.value = Date.now();
+  }, 1000);
+});
 
 onUnmounted(() => {
-  clearInterval(pollTimer)
-  clearInterval(clockTimer)
-})
+  clearInterval(pollTimer);
+  clearInterval(clockTimer);
+});
 </script>
 
 <template>
@@ -146,7 +159,7 @@ onUnmounted(() => {
     <p class="eyebrow">Jadwal #{{ scheduleId }}</p>
     <h1>Pilih kursi Anda</h1>
 
-    <p v-if="error" class="error-banner" style="margin-top:1rem">{{ error }}</p>
+    <p v-if="error" class="error-banner" style="margin-top: 1rem">{{ error }}</p>
 
     <div v-if="loading" class="seat-loading pulse">Memuat peta kursi…</div>
 
@@ -172,26 +185,14 @@ onUnmounted(() => {
           </div>
 
           <div v-for="row in cabinRows" :key="row.number" class="cabin-row">
-            <button
-              v-if="row.left"
-              class="seat"
-              :class="seatState(row.left)"
-              :disabled="seatState(row.left) !== 'available' || locking"
-              @click="handleSeatClick(row.left)"
-            >
+            <button v-if="row.left" class="seat" :class="seatState(row.left)" :disabled="seatState(row.left) !== 'available' || locking" @click="handleSeatClick(row.left)">
               {{ row.left.seat_number }}
             </button>
             <div v-else class="seat-empty"></div>
 
             <span class="row-number">{{ row.number }}</span>
 
-            <button
-              v-if="row.right"
-              class="seat"
-              :class="seatState(row.right)"
-              :disabled="seatState(row.right) !== 'available' || locking"
-              @click="handleSeatClick(row.right)"
-            >
+            <button v-if="row.right" class="seat" :class="seatState(row.right)" :disabled="seatState(row.right) !== 'available' || locking" @click="handleSeatClick(row.right)">
               {{ row.right.seat_number }}
             </button>
             <div v-else class="seat-empty"></div>
@@ -206,14 +207,12 @@ onUnmounted(() => {
         </div>
         <div class="lock-banner-actions">
           <button class="btn btn-secondary" :disabled="cancelling" @click="handleCancel">
-            {{ cancelling ? 'Membatalkan…' : 'Batal' }}
+            {{ cancelling ? "Membatalkan…" : "Batal" }}
           </button>
           <button class="btn btn-primary" @click="goToSummary">Lanjut &amp; konfirmasi →</button>
         </div>
       </div>
-      <div v-else-if="lockedSeat && lockExpired" class="error-banner">
-        Waktu tahan kursi {{ lockedSeat.seat_number }} sudah habis. Silakan pilih kursi lagi.
-      </div>
+      <div v-else-if="lockedSeat && lockExpired" class="error-banner">Waktu tahan kursi {{ lockedSeat.seat_number }} sudah habis. Silakan pilih kursi lagi.</div>
     </template>
   </div>
 </template>
@@ -246,11 +245,22 @@ onUnmounted(() => {
   display: inline-block;
 }
 
-.dot.available { background: var(--color-surface-raised); border: 1px solid var(--color-teal); }
-.dot.locked-other { background: rgba(169, 118, 44, 0.4); }
-.dot.booked-other { background: var(--color-border); }
-.dot.booked-mine { background: #2fae6b; }
-.dot.holding { background: var(--color-amber); }
+.dot.available {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-teal);
+}
+.dot.locked-other {
+  background: rgba(169, 118, 44, 0.4);
+}
+.dot.booked-other {
+  background: var(--color-border);
+}
+.dot.booked-mine {
+  background: #2fae6b;
+}
+.dot.holding {
+  background: var(--color-amber);
+}
 
 /* Cabin: a tall, narrow silhouette (rounded top = front of vehicle) instead
    of a generic flat card, so the vertical seat plan reads as an actual
@@ -322,7 +332,8 @@ onUnmounted(() => {
   color: var(--color-text-dim);
 }
 
-.seat, .seat-empty {
+.seat,
+.seat-empty {
   width: 56px;
   height: 48px;
 }
